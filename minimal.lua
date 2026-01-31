@@ -17,6 +17,9 @@ local plugins = {
     ---@type obsidian.config
     opts = {
       legacy_commands = false,
+      templates = {
+        folder = "templates",
+      },
       workspaces = {
         {
           name = "test",
@@ -55,17 +58,14 @@ local plugins = {
   --     }
   --   end,
   -- },
-  -- {
-  --   "saghen/blink.cmp",
-  --   version = "1.*",
-  --   opts = {},
-  -- },
-  -- {
-  --   "nvim-mini/mini.nvim",
-  --   config = function()
-  --     require("mini.completion").setup {}
-  --   end,
-  -- },
+  {
+    "saghen/blink.cmp",
+    version = "1.*",
+    opts = {
+      cmdline = { enabled = false },
+      -- fuzzy = { implementation = "lua" }, -- no need to build binary
+    },
+  },
 }
 
 require("lazy.minit").repro { spec = plugins }
