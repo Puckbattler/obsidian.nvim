@@ -120,6 +120,9 @@ end
 ---@param opts obsidian.PickerFindOpts|? Options.
 M.find_files = function(opts)
   opts = opts or {}
+  if Picker.find_files_from_cache(opts) then
+    return
+  end
   opts.callback = opts.callback or api.open_note
 
   local prompt_title = ut.build_prompt {
@@ -200,6 +203,7 @@ M.pick = function(values, opts)
   opts.callback = opts.callback or api.open_note
 
   local picker_opts = {
+    default_text = opts.query,
     attach_mappings = function(_, map)
       attach_picker_mappings(map, {
         callback = opts.callback,
