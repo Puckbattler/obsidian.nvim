@@ -9,6 +9,7 @@ local search = require "obsidian.search"
 local config = require "obsidian.config"
 local attachment = require "obsidian.attachment"
 local Range = require "obsidian.range"
+local parse_tasks = require "obsidian.parse.tasks"
 
 M.dir = require("obsidian.fs").dir
 
@@ -196,7 +197,7 @@ end
 --- Whether there is a checkbox under the cursor
 ---@return boolean
 M.cursor_checkbox = function()
-  return util.is_checkbox(vim.api.nvim_get_current_line())
+  return parse_tasks.extract(vim.api.nvim_get_current_line())[1] ~= nil
 end
 
 M.cursor_frontmatter = function()
