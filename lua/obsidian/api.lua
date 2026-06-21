@@ -9,7 +9,7 @@ local search = require "obsidian.search"
 local config = require "obsidian.config"
 local attachment = require "obsidian.attachment"
 local Range = require "obsidian.range"
-local parse_tasks = require "obsidian.parse.tasks"
+local parse_tasks = require "obsidian.parse.line.tasks"
 
 M.dir = require("obsidian.fs").dir
 
