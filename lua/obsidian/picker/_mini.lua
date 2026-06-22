@@ -1,7 +1,6 @@
 local api = require "obsidian.api"
 local search = require "obsidian.search"
 local Path = require "obsidian.path"
-local Picker = require "obsidian.picker"
 local ut = require "obsidian.picker.util"
 
 ---@param entry string
@@ -12,7 +11,6 @@ local function clean_path(entry)
 end
 
 local M = {}
-
 
 ---@param opts obsidian.PickerFindOpts|? Options.
 M.find_files = function(opts)
@@ -83,8 +81,6 @@ end
 ---@param values string[]|obsidian.PickerEntry[]
 ---@param opts obsidian.PickerPickOpts|? Options.
 M.pick = function(values, opts)
-  Picker.state.calling_bufnr = vim.api.nvim_get_current_buf()
-
   opts = opts and opts or {}
   opts.callback = opts.callback or api.open_note
 

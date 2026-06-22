@@ -1,6 +1,5 @@
 local api = require "obsidian.api"
 local search = require "obsidian.search"
-local Picker = require "obsidian.picker"
 local Path = require "obsidian.path"
 local ut = require "obsidian.picker.util"
 
@@ -68,8 +67,6 @@ end
 ---@param values string[]|obsidian.PickerEntry[]
 ---@param opts obsidian.PickerPickOpts|? Options.
 M.pick = function(values, opts)
-  Picker.state.calling_bufnr = vim.api.nvim_get_current_buf()
-
   opts = opts or {}
   local callback = opts.callback or api.open_note
 

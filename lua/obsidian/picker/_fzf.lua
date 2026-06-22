@@ -2,7 +2,6 @@ local api = require "obsidian.api"
 local search = require "obsidian.search"
 local Path = require "obsidian.path"
 local log = require "obsidian.log"
-local Picker = require "obsidian.picker"
 local ut = require "obsidian.picker.util"
 
 ---@param prompt_title string|?
@@ -26,7 +25,7 @@ end
 
 local M = {}
 
----@param opts { callback: fun(selection: obsidian.PickerEntry)|? }
+---@param opts { callback: fun(selection: obsidian.PickerEntry)|?, query_mappings: obsidian.PickerMappingTable|? }
 ---@param path_only? boolean HACK:
 local function get_selection_actions(opts, path_only)
   local entry_to_file = require("fzf-lua.path").entry_to_file
@@ -40,17 +39,28 @@ local function get_selection_actions(opts, path_only)
         else
           opts.callback { filename = path }
         end
-      elseif not opts.no_default_mappings then
+      else
         require("fzf-lua.actions").file_edit_or_qf(selected, fzf_opts)
       end
     end,
   }
 
+  if opts.query_mappings then
+    for key, mapping in pairs(opts.query_mappings) do
+      actions[format_keymap(key)] = function(_, fzf_opts)
+        local query = fzf_opts.query
+        if query and string.len(query) > 0 then
+          mapping.callback(query)
+        end
+      end
+    end
+  end
+
   return actions
 end
 
 ---@param display_to_value_map table<string, any>
----@param opts { callback: fun(path: string)|?, allow_multiple: boolean|? }
+---@param opts { callback: fun(path: string)|?, allow_multiple: boolean|?, query_mappings: obsidian.PickerMappingTable|? }
 local function get_value_actions(display_to_value_map, opts)
   ---@param allow_multiple boolean|?
   ---@return any[]|?
@@ -94,6 +104,17 @@ local function get_value_actions(display_to_value_map, opts)
     end,
   }
 
+  if opts.query_mappings then
+    for key, mapping in pairs(opts.query_mappings) do
+      actions[format_keymap(key)] = function(_, fzf_opts)
+        local query = fzf_opts.query
+        if query and string.len(query) > 0 then
+          mapping.callback(query)
+        end
+      end
+    end
+  end
+
   return actions
 end
 
@@ -110,10 +131,11 @@ M.find_files = function(opts)
     cwd = tostring(dir),
     cmd = table.concat(search.build_find_cmd(nil, nil, { include_non_markdown = opts.include_non_markdown }), " "),
     cwd_prompt = false,
-    prompt = format_prompt(opts.prompt_title),
+    prompt = format_prompt(ut.build_prompt { prompt_title = opts.prompt_title, query_mappings = opts.query_mappings }),
     show_details = true,
     actions = get_selection_actions({
       callback = opts.callback,
+      query_mappings = opts.query_mappings,
     }, true),
   }
   return class
@@ -128,7 +150,11 @@ M.grep = function(opts)
   ---@type obsidian.Path
   local dir = opts.dir and Path.new(opts.dir) or Obsidian.dir
   local cmd = table.concat(search.build_grep_cmd(), " ")
-  local actions = get_selection_actions {}
+  local actions = get_selection_actions {
+    query_mappings = opts.query_mappings,
+  }
+  local prompt =
+    format_prompt(ut.build_prompt { prompt_title = opts.prompt_title, query_mappings = opts.query_mappings })
 
   if opts.query and string.len(opts.query) > 0 then
     fzf.grep {
@@ -136,14 +162,14 @@ M.grep = function(opts)
       search = opts.query,
       cmd = cmd,
       actions = actions,
-      prompt = format_prompt(opts.prompt_title),
+      prompt = prompt,
     }
   else
     fzf.live_grep {
       cwd = tostring(dir),
       cmd = cmd,
       actions = actions,
-      prompt = format_prompt(opts.prompt_title),
+      prompt = prompt,
     }
   end
 end
@@ -151,8 +177,6 @@ end
 ---@param values string[]|obsidian.PickerEntry[]
 ---@param opts obsidian.PickerPickOpts|? Options.
 M.pick = function(values, opts)
-  Picker.state.calling_bufnr = vim.api.nvim_get_current_buf()
-
   opts = opts or {}
   opts.callback = opts.callback or api.open_note
 
@@ -199,10 +223,11 @@ M.pick = function(values, opts)
 
   require("fzf-lua").fzf_exec(entries, {
     previewer = file_preview and MyPreviewer or nil,
-    prompt = format_prompt(ut.build_prompt { prompt_title = opts.prompt_title }),
+    prompt = format_prompt(ut.build_prompt { prompt_title = opts.prompt_title, query_mappings = opts.query_mappings }),
     actions = get_value_actions(display_to_value_map, {
       callback = opts.callback,
       allow_multiple = opts.allow_multiple,
+      query_mappings = opts.query_mappings,
     }),
   })
 end

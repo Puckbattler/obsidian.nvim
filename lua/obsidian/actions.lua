@@ -526,7 +526,6 @@ M.new_from_template = function(id, template, callback)
   picker.find_files {
     prompt_title = "Templates",
     dir = templates_dir,
-    no_default_mappings = true,
     callback = function(template_name)
       if id == nil or id == "" then
         -- Must use pcall in case of KeyboardInterrupt
