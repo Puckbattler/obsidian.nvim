@@ -14,6 +14,7 @@ local module_pages = {
   note = "Note.md",
   frontmatter = "Frontmatter.md",
   templates = "Template.md",
+  templater = "Templater.md",
   search = "Search.md",
   daily_notes = "Daily Notes.md",
   unique_note = "Unique-Note.md",

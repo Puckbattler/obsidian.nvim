@@ -121,6 +121,7 @@ There's one entry point user command for this plugin: `Obsidian`
 - `:Obsidian footnotes` - get a select list of all footnotes in current note, with preview
 - `:Obsidian template [NAME]` - insert a template from the templates folder, selecting from a list using your preferred picker
   - [Template](https://github.com/obsidian-nvim/obsidian.nvim/wiki/Template)
+  - JavaScript-based templates (e.g. [Templater](https://github.com/nicepkg/templater)) can be executed automatically via the `templater` config option. See [Templater](https://github.com/obsidian-nvim/obsidian.nvim/wiki/Templater)
 - `:Obsidian links` - get a picker list of all links in current note
 - `:Obsidian paste_img [IMGNAME]` - paste an image from the clipboard into the note at the cursor position by saving it to the vault and adding a markdown image link
   - [Images](https://github.com/obsidian-nvim/obsidian.nvim/wiki/Images#change-image-save-location)

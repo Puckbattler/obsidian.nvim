@@ -121,6 +121,119 @@ T["clone_template()"]["should transfer title from partial_note"] = function()
   eq("My Note Title", result.title)
 end
 
+T["has_templater_js()"] = new_set()
+
+T["has_templater_js()"]["should detect Templater execution markers"] = function()
+  eq(true, M.has_templater_js "<% tp.date.now() %>")
+  eq(true, M.has_templater_js "<%= tp.date.now() %>")
+  eq(true, M.has_templater_js "<%# comment %>")
+end
+
+T["has_templater_js()"]["should detect js code block in first 10 lines"] = function()
+  local content = "# Title\n\n```js\nconsole.log('hello');\n```\n\nSome text."
+  eq(true, M.has_templater_js(content))
+end
+
+T["has_templater_js()"]["should not detect js code block after first 10 lines"] = function()
+  local lines = {}
+  for i = 1, 11 do
+    lines[#lines + 1] = "line " .. i
+  end
+  lines[#lines + 1] = "```js"
+  local content = table.concat(lines, "\n")
+  eq(false, M.has_templater_js(content))
+end
+
+T["has_templater_js()"]["should return false for plain markdown"] = function()
+  eq(false, M.has_templater_js "# Hello\n\nJust some text.")
+  eq(false, M.has_templater_js "{{date}}\n\n{{title}}")
+end
+
+T["has_templater_js()"]["should not be fooled by comparison operators"] = function()
+  -- A markdown body containing `<=` or `<%` outside a Templater tag should still be
+  -- detected/ignored correctly. `<=` must NOT trigger detection.
+  eq(false, M.has_templater_js "if a <= b then return c end")
+  eq(false, M.has_templater_js "value < percentage of total")
+end
+
+T["is_templater_template()"] = new_set()
+
+T["is_templater_template()"]["should return true for template with Templater syntax"] = function()
+  local templates_dir = Obsidian.dir / "templates"
+  templates_dir:mkdir { parents = true, exist_ok = true }
+  local template_path = templates_dir / "templater-note.md"
+  vim.fn.writefile({ '<% tp.date.now("YYYY-MM-DD") %>', "", "# My Note" }, tostring(template_path))
+  eq(true, M.is_templater_template("templater-note.md", templates_dir))
+end
+
+T["is_templater_template()"]["should return false for plain template"] = function()
+  local templates_dir = Obsidian.dir / "templates"
+  templates_dir:mkdir { parents = true, exist_ok = true }
+  local template_path = templates_dir / "plain-note.md"
+  vim.fn.writefile({ "{{date}}", "", "# {{title}}" }, tostring(template_path))
+  eq(false, M.is_templater_template("plain-note.md", templates_dir))
+end
+
+T["substitute_with_templater()"] = new_set()
+
+T["substitute_with_templater()"]["should preserve blank lines and not duplicate newlines"] = function()
+  -- Use `cat` as a stub templater that echoes stdin verbatim. This exercises the
+  -- argv flattening (cmd + args) and the line-splitting logic.
+  local prev = Obsidian.opts.templater
+  Obsidian.opts.templater = { enabled = true, cmd = "cat", args = {}, env = {}, pipe_stdin = true }
+
+  local templates_dir = Obsidian.dir / "templates"
+  templates_dir:mkdir { parents = true, exist_ok = true }
+  local template_path = templates_dir / "js-note.md"
+  vim.fn.writefile({ "---", "title: x", "---", "", "# Heading", "", "body line" }, tostring(template_path))
+
+  local ctx = { type = "clone_template", template_name = "js-note.md", templates_dir = templates_dir }
+  local lines, used_templater = M.substitute_with_templater(template_path, ctx)
+
+  Obsidian.opts.templater = prev
+
+  eq(true, used_templater)
+  eq({ "---", "title: x", "---", "", "# Heading", "", "body line" }, lines)
+end
+
+T["substitute_with_templater()"]["should report false when templater binary is missing"] = function()
+  local prev = Obsidian.opts.templater
+  -- Point at a command that does not exist so run_templater errors out (ENOENT).
+  Obsidian.opts.templater =
+    { enabled = true, cmd = "definitely-not-a-real-templater-bin", args = {}, env = {}, pipe_stdin = true }
+
+  local templates_dir = Obsidian.dir / "templates"
+  templates_dir:mkdir { parents = true, exist_ok = true }
+  local template_path = templates_dir / "fallback-note.md"
+  -- No `{{}}` placeholders: avoids triggering `api.input` in headless test.
+  vim.fn.writefile({ "# Plain", "", "body" }, tostring(template_path))
+
+  local ctx = { type = "clone_template", template_name = "fallback-note.md", templates_dir = templates_dir }
+  local _, used_templater = M.substitute_with_templater(template_path, ctx)
+
+  Obsidian.opts.templater = prev
+
+  -- On failure we must report that templater was NOT used so callers fall back safely.
+  eq(false, used_templater)
+end
+
+T["substitute_with_templater()"]["should return nil output when disabled"] = function()
+  local prev = Obsidian.opts.templater
+  Obsidian.opts.templater = { enabled = false, cmd = "cat", args = {}, env = {}, pipe_stdin = true }
+
+  local templates_dir = Obsidian.dir / "templates"
+  templates_dir:mkdir { parents = true, exist_ok = true }
+  local template_path = templates_dir / "disabled-note.md"
+  vim.fn.writefile({ "line" }, tostring(template_path))
+
+  local ctx = { type = "clone_template", template_name = "disabled-note.md", templates_dir = templates_dir }
+  local output = M.run_templater(template_path, ctx)
+
+  Obsidian.opts.templater = prev
+
+  eq(nil, output)
+end
+
 T["config.normalize()"] = new_set()
 
 T["config.normalize()"]["custom substitutions should not clobber defaults"] = function()
@@ -198,6 +311,33 @@ T["config.normalize()"]["vim.NIL should remove a default value"] = function()
 
   -- The field should be nil, not the default "current_dir".
   eq(nil, opts.new_notes_location)
+end
+
+T["config.normalize()"]["templater defaults should apply when not overridden"] = function()
+  local config = require "obsidian.config"
+  local opts = config.normalize {
+    workspaces = { { path = tostring(Obsidian.dir) } },
+  }
+
+  eq(false, opts.templater.enabled)
+  eq("templater", opts.templater.cmd)
+  eq(true, opts.templater.pipe_stdin)
+end
+
+T["config.normalize()"]["templater overrides should merge with defaults"] = function()
+  local config = require "obsidian.config"
+  local opts = config.normalize {
+    workspaces = { { path = tostring(Obsidian.dir) } },
+    templater = {
+      enabled = true,
+      cmd = "custom-templater",
+    },
+  }
+
+  eq(true, opts.templater.enabled)
+  eq("custom-templater", opts.templater.cmd)
+  -- Default pipe_stdin should still be present.
+  eq(true, opts.templater.pipe_stdin)
 end
 
 return T
